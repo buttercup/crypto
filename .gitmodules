@@ -1,3 +1,0 @@
-[submodule "rust-cardano"]
-	path = rust-cardano
-	url = git@github.com:input-output-hk/rust-cardano.git

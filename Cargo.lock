@@ -2,10 +2,13 @@
 name = "buttercup-crypto"
 version = "0.1.0"
 dependencies = [
- "rcw 0.2.36",
+ "rust-crypto-wasm 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "rcw"
+name = "rust-crypto-wasm"
 version = "0.2.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
+[metadata]
+"checksum rust-crypto-wasm 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)" = "ea726b733930cff9deb62a5250266616b0b144569dd30d98866ef6fbe0734a0f"

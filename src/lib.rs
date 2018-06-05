@@ -1,8 +1,8 @@
-extern crate rcw;
+extern crate rust_crypto_wasm;
 
-use rcw::pbkdf2::{pbkdf2 as pbkdf2_core};
-use rcw::hmac::Hmac;
-use rcw::sha2::Sha256;
+use rust_crypto_wasm::pbkdf2::{pbkdf2 as pbkdf2_core};
+use rust_crypto_wasm::hmac::Hmac;
+use rust_crypto_wasm::sha2::Sha256;
 
 pub fn pbkdf2(password: &str, salt: &str, iterations: u32, bits: usize) -> Vec<u8> {
     let mut to_store = Vec::new();

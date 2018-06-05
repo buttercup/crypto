@@ -7,7 +7,4 @@ license = "MIT"
 repository = "https://github.com/buttercup/crypto"
 
 [dependencies]
-rcw = { path = "./rust-cardano/rcw/", version = "0.2.36" }
-
-[patch.crates-io]
-rcw = { path = "./rust-cardano/rcw/" }
+rust-crypto-wasm = "0.2.36"
