@@ -1,4 +1,11 @@
 [[package]]
 name = "buttercup-crypto"
 version = "0.1.0"
+dependencies = [
+ "rcw 0.2.36",
+]
+
+[[package]]
+name = "rcw"
+version = "0.2.36"
 
