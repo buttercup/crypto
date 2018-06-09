@@ -15,10 +15,6 @@ pub fn encrypt(data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, SymmetricC
     loop {
         let result = try!(encryptor.encrypt(&mut read_buffer, &mut write_buffer, true));
 
-        // "write_buffer.take_read_buffer().take_remaining()" means:
-        // from the writable buffer, create a new readable buffer which
-        // contains all data that has been written, and then access all
-        // of that data as a slice.
         final_result.extend(
             write_buffer
                 .take_read_buffer()
