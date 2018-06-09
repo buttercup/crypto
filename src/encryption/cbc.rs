@@ -66,3 +66,15 @@ pub fn decrypt(
 
     Ok(final_result)
 }
+
+#[test]
+fn cbc_test() {
+    let message = "Hello World!".as_bytes();
+    let key = "-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G".as_bytes();
+    let iv = "hv3DdMH0-RQLu1Sx".as_bytes();
+
+    let encrypted = encrypt(message, key, iv).ok().unwrap();
+    let decrypted = decrypt(encrypted.as_slice(), key, iv).ok().unwrap();
+
+    assert_eq!(decrypted.as_slice(), message);
+}
