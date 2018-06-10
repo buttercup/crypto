@@ -1,4 +1,3 @@
-use base64;
 use crypto::aes::{cbc_decryptor, cbc_encryptor, KeySize};
 use crypto::blockmodes;
 use crypto::buffer::{BufferResult, ReadBuffer, RefReadBuffer, RefWriteBuffer, WriteBuffer};
@@ -6,8 +5,9 @@ use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha2::Sha256;
 use crypto::symmetriccipher::SymmetricCipherError;
-use hex;
 
+use base64;
+use hex;
 use rand::{thread_rng, Rng};
 
 fn glued_result(string_list: Vec<String>) -> String {
@@ -24,6 +24,7 @@ pub fn encrypt(
     let mut iv: [u8; 16] = [0; 16];
     thread_rng().fill(&mut iv[..]);
 
+    // Encrypt the input using AES 256 CBC
     let mut encryptor = cbc_encryptor(KeySize::KeySize256, key, &iv, blockmodes::PkcsPadding);
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = RefReadBuffer::new(data);
@@ -47,6 +48,7 @@ pub fn encrypt(
         }
     }
 
+    // Create an HMAC using SHA256
     let mut hmac = Hmac::new(Sha256::new(), hmac_key);
     hmac.input(&final_result);
     hmac.input(&iv);
@@ -54,6 +56,8 @@ pub fn encrypt(
     let hmac_result = hmac.result();
     let hmac_code = hmac_result.code();
 
+    // Glue together the result
+    // The encrypted content is Base64 everything else is Hex
     Ok(glued_result(vec![
         base64::encode(&final_result),
         hex::encode(hmac_code),
