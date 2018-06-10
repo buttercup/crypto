@@ -9,3 +9,5 @@ repository = "https://github.com/buttercup/crypto"
 [dependencies]
 rust-crypto-wasm = "^0.3"
 rand = "0.5.1"
+base64 = "^0.5"
+hex = "^0.3"

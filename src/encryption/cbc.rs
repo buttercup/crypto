@@ -1,24 +1,30 @@
-use crypto::aes;
+use base64;
+use crypto::aes::{cbc_decryptor, cbc_encryptor, KeySize};
 use crypto::blockmodes;
 use crypto::buffer::{BufferResult, ReadBuffer, RefReadBuffer, RefWriteBuffer, WriteBuffer};
+use crypto::hmac::Hmac;
+use crypto::mac::Mac;
+use crypto::sha2::Sha256;
 use crypto::symmetriccipher::SymmetricCipherError;
+use hex;
+
 use rand::{thread_rng, Rng};
+
+fn glued_result(string_list: Vec<String>) -> String {
+    string_list.join("$")
+}
 
 pub fn encrypt(
     data: &[u8],
     key: &[u8],
     salt: &[u8],
-    hmacKey: &[u8],
-) -> Result<Vec<u8>, SymmetricCipherError> {
+    hmac_key: &[u8],
+) -> Result<String, SymmetricCipherError> {
     // Create a random IV
     let mut iv: [u8; 16] = [0; 16];
     thread_rng().fill(&mut iv[..]);
 
-    println!("{:?}", iv);
-
-    let mut encryptor =
-        aes::cbc_encryptor(aes::KeySize::KeySize256, key, &iv, blockmodes::PkcsPadding);
-
+    let mut encryptor = cbc_encryptor(KeySize::KeySize256, key, &iv, blockmodes::PkcsPadding);
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = RefReadBuffer::new(data);
     let mut buffer = [0; 4096];
@@ -41,7 +47,19 @@ pub fn encrypt(
         }
     }
 
-    Ok(final_result)
+    let mut hmac = Hmac::new(Sha256::new(), hmac_key);
+    hmac.input(&final_result);
+    hmac.input(&iv);
+    hmac.input(salt);
+    let hmac_result = hmac.result();
+    let hmac_code = hmac_result.code();
+
+    Ok(glued_result(vec![
+        base64::encode(&final_result),
+        hex::encode(hmac_code),
+        hex::encode(&iv),
+        hex::encode(salt),
+    ]))
 }
 
 pub fn decrypt(
@@ -49,8 +67,7 @@ pub fn decrypt(
     key: &[u8],
     iv: &[u8],
 ) -> Result<Vec<u8>, SymmetricCipherError> {
-    let mut decryptor =
-        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+    let mut decryptor = cbc_decryptor(KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
 
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = RefReadBuffer::new(encrypted_data);
@@ -82,7 +99,8 @@ fn cbc_test() {
     let iv = "hv3DdMH0-RQLu1Sx".as_bytes();
 
     let encrypted = encrypt(message, key, iv, iv).ok().unwrap();
-    let decrypted = decrypt(encrypted.as_slice(), key, iv).ok().unwrap();
+    println!("{:?}", encrypted);
+    // let decrypted = decrypt(encrypted.as_slice(), key, iv).ok().unwrap();
 
-    assert_eq!(decrypted.as_slice(), message);
+    // assert_eq!(decrypted.as_slice(), message);
 }
