@@ -14,17 +14,20 @@ fn glued_result(string_list: Vec<String>) -> String {
     string_list.join("$")
 }
 
+fn generate_iv() -> [u8; 16] {
+    let mut iv: [u8; 16] = [0; 16];
+    thread_rng().fill(&mut iv[..]);
+    iv
+}
+
 pub fn encrypt(
     data: &[u8],
     key: &[u8],
     salt: &[u8],
     hmac_key: &[u8],
 ) -> Result<String, SymmetricCipherError> {
-    // Create a random IV
-    let mut iv: [u8; 16] = [0; 16];
-    thread_rng().fill(&mut iv[..]);
-
     // Encrypt the input using AES 256 CBC
+    let iv = generate_iv();
     let mut encryptor = cbc_encryptor(KeySize::KeySize256, key, &iv, blockmodes::PkcsPadding);
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = RefReadBuffer::new(data);
