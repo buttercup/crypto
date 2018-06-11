@@ -20,16 +20,14 @@ fn generate_iv() -> [u8; 16] {
     iv
 }
 
-fn create_hmac(hmac_key: &[u8], data: &[u8], iv: &[u8], salt: &[u8]) -> Vec<u8> {
+fn create_hmac(hmac_key: &[u8], data: &[u8], iv: &[u8], salt: &[u8]) -> MacResult {
     let mut hmac = Hmac::new(Sha256::new(), hmac_key);
 
     hmac.input(data);
     hmac.input(iv);
     hmac.input(salt);
 
-    let hmac_result = hmac.result();
-    let hmac_code = hmac_result.code();
-    hmac_code.to_vec()
+    hmac.result()
 }
 
 pub fn encrypt(
@@ -65,7 +63,8 @@ pub fn encrypt(
 
     // Create an HMAC using SHA256
     let base64_result = base64::encode(&final_result);
-    let hmac_code = create_hmac(hmac_key, &base64_result.as_bytes(), &iv, salt);
+    let hmac_result = create_hmac(hmac_key, &base64_result.as_bytes(), &iv, salt);
+    let hmac_code = hmac_result.code();
 
     // Glue together the result
     // The encrypted content is Base64 everything else is Hex
@@ -87,11 +86,10 @@ pub fn decrypt(
 ) -> Result<Vec<u8>, SymmetricCipherError> {
     // Challenge hmac
     let hmac_reproduced = create_hmac(hmac_key, encrypted_str.as_bytes(), iv, salt);
-    let hmac_result = MacResult::new(&hmac_reproduced);
     let hmac_expected = MacResult::new(hmac);
 
     // Compare using a time-sensitive method
-    if !hmac_expected.eq(&hmac_result) {
+    if !hmac_expected.eq(&hmac_reproduced) {
         // Todo: fix error
         return Err(SymmetricCipherError::InvalidLength);
     }
