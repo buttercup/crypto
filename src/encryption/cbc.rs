@@ -31,10 +31,12 @@ pub fn encrypt(
 ) -> Result<String, SymmetricCipherError> {
     // Encrypt the input using AES 256 CBC
     let iv = generate_iv();
+    let iv_arr = GenericArray::clone_from_slice(&iv);
+
     let mut data_buffer = data.to_vec();
     let msg_len = data_buffer.len();
     data_buffer.extend([0u8; SHA256_BLOCK_LEN].iter());
-    let iv_arr = GenericArray::clone_from_slice(&iv);
+
     let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
     let final_result = cipher.encrypt_pad(&mut data_buffer, msg_len).unwrap();
 
