@@ -54,9 +54,9 @@ pub fn encrypt(
 
     // Create an HMAC using SHA256
     let base64_result = base64::encode(&final_result);
-    let mut hmac = HmacSha256::new_varkey(hmac_key).unwrap();
+    let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC Key is required.");
 
-    hmac.input(data);
+    hmac.input(base64_result.as_bytes());
     hmac.input(&iv);
     hmac.input(salt);
 
@@ -82,7 +82,7 @@ pub fn decrypt(
     hmac_expected: &[u8],
 ) -> Result<Vec<u8>, SymmetricCipherError> {
     // Challenge hmac
-    let mut hmac = HmacSha256::new_varkey(hmac_key).unwrap();
+    let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC Key is required.");
 
     hmac.input(encrypted_str.as_bytes());
     hmac.input(&iv);
