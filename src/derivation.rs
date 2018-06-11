@@ -13,8 +13,8 @@ pub fn pbkdf2(password: &str, salt: &str, iterations: u32, bits: usize) -> Vec<u
 
 #[test]
 fn pbkdf2_test() {
+    use hex;
+
     let buf = pbkdf2("password", "salt", 500, 512);
-    assert_eq!(buf.len(), 64);
-    assert!(buf[0] > 0);
-    assert!(buf[63] > 0);
+    assert_eq!(hex::encode(&buf), "d64e8195b42b448b3b11993fe808dba4ab8b27ee81e672ee8977bc7416e258a3f2b184eea77cf328c4f94dc17161fdb4c0e6e99400d5e83dad51dcefff911ae4");
 }
