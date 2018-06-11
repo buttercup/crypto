@@ -1,7 +1,10 @@
 extern crate base64;
 extern crate crypto;
 extern crate hex;
+extern crate hmac;
+extern crate pbkdf2;
 extern crate rand;
+extern crate sha2;
 
 pub mod derivation;
 pub mod encryption;
