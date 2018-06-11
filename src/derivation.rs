@@ -1,12 +1,12 @@
 use hmac::Hmac;
-use pbkdf2;
+use pbkdf2::pbkdf2 as pbkdf2_core;
 use sha2::Sha256;
 
 pub fn pbkdf2(password: &str, salt: &str, iterations: usize, bits: usize) -> Vec<u8> {
     let mut to_store = Vec::new();
     to_store.resize(bits / 8, 0);
 
-    pbkdf2::pbkdf2::<Hmac<Sha256>>(
+    pbkdf2_core::<Hmac<Sha256>>(
         password.as_bytes(),
         salt.as_bytes(),
         iterations,
