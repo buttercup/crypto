@@ -1,15 +1,17 @@
-use crypto::aes::{cbc_decryptor, cbc_encryptor, KeySize};
-use crypto::blockmodes;
-use crypto::buffer::{BufferResult, ReadBuffer, RefReadBuffer, RefWriteBuffer, WriteBuffer};
-use crypto::symmetriccipher::SymmetricCipherError;
-
+use aes_soft::block_cipher_trait::generic_array::GenericArray;
+use aes_soft::Aes256;
 use base64;
+use block_modes::block_padding::Pkcs7;
+use block_modes::{BlockMode, BlockModeIv, Cbc};
+use crypto::symmetriccipher::SymmetricCipherError;
 use hex;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
+type AesCbc = Cbc<Aes256, Pkcs7>;
+pub const SHA256_BLOCK_LEN: usize = 16;
 
 fn glued_result(string_list: Vec<String>) -> String {
     string_list.join("$")
@@ -29,28 +31,12 @@ pub fn encrypt(
 ) -> Result<String, SymmetricCipherError> {
     // Encrypt the input using AES 256 CBC
     let iv = generate_iv();
-    let mut encryptor = cbc_encryptor(KeySize::KeySize256, key, &iv, blockmodes::PkcsPadding);
-    let mut final_result = Vec::<u8>::new();
-    let mut read_buffer = RefReadBuffer::new(data);
-    let mut buffer = [0; 4096];
-    let mut write_buffer = RefWriteBuffer::new(&mut buffer);
-
-    loop {
-        let result = try!(encryptor.encrypt(&mut read_buffer, &mut write_buffer, true));
-
-        final_result.extend(
-            write_buffer
-                .take_read_buffer()
-                .take_remaining()
-                .iter()
-                .map(|&i| i),
-        );
-
-        match result {
-            BufferResult::BufferUnderflow => break,
-            BufferResult::BufferOverflow => {}
-        }
-    }
+    let mut data_buffer = data.to_vec();
+    let msg_len = data_buffer.len();
+    data_buffer.extend([0u8; SHA256_BLOCK_LEN].iter());
+    let iv_arr = GenericArray::clone_from_slice(&iv);
+    let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
+    let final_result = cipher.encrypt_pad(&mut data_buffer, msg_len).unwrap();
 
     // Create an HMAC using SHA256
     let base64_result = base64::encode(&final_result);
@@ -97,27 +83,10 @@ pub fn decrypt(
     }
 
     // Decrypt the input using AES 256 CBC
-    let encrypted_data = base64::decode(&encrypted_str).ok().unwrap();
-    let mut decryptor = cbc_decryptor(KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
-    let mut final_result = Vec::<u8>::new();
-    let mut read_buffer = RefReadBuffer::new(encrypted_data.as_slice());
-    let mut buffer = [0; 4096];
-    let mut write_buffer = RefWriteBuffer::new(&mut buffer);
-
-    loop {
-        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
-        final_result.extend(
-            write_buffer
-                .take_read_buffer()
-                .take_remaining()
-                .iter()
-                .map(|&i| i),
-        );
-        match result {
-            BufferResult::BufferUnderflow => break,
-            BufferResult::BufferOverflow => {}
-        }
-    }
+    let mut encrypted_data = base64::decode(&encrypted_str).ok().unwrap();
+    let iv_arr = GenericArray::clone_from_slice(&iv);
+    let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
+    let final_result = cipher.decrypt_pad(&mut encrypted_data).unwrap();
 
     Ok(final_result.to_vec())
 }
