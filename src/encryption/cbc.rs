@@ -1,14 +1,15 @@
 use crypto::aes::{cbc_decryptor, cbc_encryptor, KeySize};
 use crypto::blockmodes;
 use crypto::buffer::{BufferResult, ReadBuffer, RefReadBuffer, RefWriteBuffer, WriteBuffer};
-use crypto::hmac::Hmac;
-use crypto::mac::{Mac, MacResult};
-use crypto::sha2::Sha256;
 use crypto::symmetriccipher::SymmetricCipherError;
 
 use base64;
 use hex;
+use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
+use sha2::Sha256;
+
+type HmacSha256 = Hmac<Sha256>;
 
 fn glued_result(string_list: Vec<String>) -> String {
     string_list.join("$")
@@ -18,16 +19,6 @@ fn generate_iv() -> [u8; 16] {
     let mut iv: [u8; 16] = [0; 16];
     thread_rng().fill(&mut iv[..]);
     iv
-}
-
-fn create_hmac(hmac_key: &[u8], data: &[u8], iv: &[u8], salt: &[u8]) -> MacResult {
-    let mut hmac = Hmac::new(Sha256::new(), hmac_key);
-
-    hmac.input(data);
-    hmac.input(iv);
-    hmac.input(salt);
-
-    hmac.result()
 }
 
 pub fn encrypt(
@@ -63,7 +54,13 @@ pub fn encrypt(
 
     // Create an HMAC using SHA256
     let base64_result = base64::encode(&final_result);
-    let hmac_result = create_hmac(hmac_key, &base64_result.as_bytes(), &iv, salt);
+    let mut hmac = HmacSha256::new_varkey(hmac_key).unwrap();
+
+    hmac.input(data);
+    hmac.input(&iv);
+    hmac.input(salt);
+
+    let hmac_result = hmac.result();
     let hmac_code = hmac_result.code();
 
     // Glue together the result
@@ -82,14 +79,19 @@ pub fn decrypt(
     iv: &[u8],
     salt: &[u8],
     hmac_key: &[u8],
-    hmac: &[u8],
+    hmac_expected: &[u8],
 ) -> Result<Vec<u8>, SymmetricCipherError> {
     // Challenge hmac
-    let hmac_reproduced = create_hmac(hmac_key, encrypted_str.as_bytes(), iv, salt);
-    let hmac_expected = MacResult::new(hmac);
+    let mut hmac = HmacSha256::new_varkey(hmac_key).unwrap();
+
+    hmac.input(encrypted_str.as_bytes());
+    hmac.input(&iv);
+    hmac.input(salt);
+
+    let hmac_reproduced = hmac.result();
 
     // Compare using a time-sensitive method
-    if !hmac_expected.eq(&hmac_reproduced) {
+    if !hmac_reproduced.is_equal(hmac_expected) {
         // Todo: fix error
         return Err(SymmetricCipherError::InvalidLength);
     }
