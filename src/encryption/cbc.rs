@@ -73,9 +73,12 @@ pub fn decrypt(
     encrypted_data: &[u8],
     key: &[u8],
     iv: &[u8],
-) -> Result<Vec<u8>, SymmetricCipherError> {
+    salt: &[u8],
+    hmac_key: &[u8],
+    hmac: &[u8],
+) -> Result<String, SymmetricCipherError> {
+    // Decrypt the input using AES 256 CBC
     let mut decryptor = cbc_decryptor(KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
-
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = RefReadBuffer::new(encrypted_data);
     let mut buffer = [0; 4096];
@@ -96,18 +99,41 @@ pub fn decrypt(
         }
     }
 
-    Ok(final_result)
+    Ok(base64::encode(&final_result))
 }
 
 #[test]
-fn cbc_test() {
+fn cbc_encryption_test() {
     let message = "Hello World!".as_bytes();
     let key = "-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G".as_bytes();
-    let iv = "hv3DdMH0-RQLu1Sx".as_bytes();
+    let salt = "apF3M5u3dNbYt45ok92WAGjz4U7FJYDV".as_bytes();
+    let hmac_key = "_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7".as_bytes();
 
-    let encrypted = encrypt(message, key, iv, iv).ok().unwrap();
-    println!("{:?}", encrypted);
-    // let decrypted = decrypt(encrypted.as_slice(), key, iv).ok().unwrap();
+    let encrypted = encrypt(message, key, salt, hmac_key).ok().unwrap();
+    assert_eq!(encrypted.len(), 187);
+}
 
-    // assert_eq!(decrypted.as_slice(), message);
+#[test]
+fn cbc_decryption_test() {
+    let encrypted = base64::decode("8OaBXdNSiwz5T6ucJ1YEvQ==").ok().unwrap();
+    let key = "-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G".as_bytes();
+    let hmac_key = "_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7".as_bytes();
+    let salt = "apF3M5u3dNbYt45ok92WAGjz4U7FJYDV".as_bytes();
+    let iv = hex::decode("05e320828ef2d1d0579ed5fb23c1b275")
+        .ok()
+        .unwrap();
+    let hmac = hex::decode("8e41ad6b51f08f66b4f1e892801584568ae1f4248241acea101d05f7fa68cf1f")
+        .ok()
+        .unwrap();
+
+    let decrypted = decrypt(
+        encrypted.as_slice(),
+        key,
+        iv.as_slice(),
+        salt,
+        hmac_key,
+        hmac.as_slice(),
+    ).ok()
+        .unwrap();
+    assert_eq!(decrypted, base64::encode("Hello World!"));
 }
