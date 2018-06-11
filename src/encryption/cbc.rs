@@ -2,7 +2,7 @@ use crypto::aes::{cbc_decryptor, cbc_encryptor, KeySize};
 use crypto::blockmodes;
 use crypto::buffer::{BufferResult, ReadBuffer, RefReadBuffer, RefWriteBuffer, WriteBuffer};
 use crypto::hmac::Hmac;
-use crypto::mac::Mac;
+use crypto::mac::{Mac, MacResult};
 use crypto::sha2::Sha256;
 use crypto::symmetriccipher::SymmetricCipherError;
 
@@ -18,6 +18,18 @@ fn generate_iv() -> [u8; 16] {
     let mut iv: [u8; 16] = [0; 16];
     thread_rng().fill(&mut iv[..]);
     iv
+}
+
+fn create_hmac(hmac_key: &[u8], data: &[u8], iv: &[u8], salt: &[u8]) -> Vec<u8> {
+    let mut hmac = Hmac::new(Sha256::new(), hmac_key);
+
+    hmac.input(data);
+    hmac.input(iv);
+    hmac.input(salt);
+
+    let hmac_result = hmac.result();
+    let hmac_code = hmac_result.code();
+    hmac_code.to_vec()
 }
 
 pub fn encrypt(
@@ -52,17 +64,13 @@ pub fn encrypt(
     }
 
     // Create an HMAC using SHA256
-    let mut hmac = Hmac::new(Sha256::new(), hmac_key);
-    hmac.input(&final_result);
-    hmac.input(&iv);
-    hmac.input(salt);
-    let hmac_result = hmac.result();
-    let hmac_code = hmac_result.code();
+    let base64_result = base64::encode(&final_result);
+    let hmac_code = create_hmac(hmac_key, &base64_result.as_bytes(), &iv, salt);
 
     // Glue together the result
     // The encrypted content is Base64 everything else is Hex
     Ok(glued_result(vec![
-        base64::encode(&final_result),
+        base64_result,
         hex::encode(hmac_code),
         hex::encode(&iv),
         hex::encode(salt),
@@ -70,17 +78,29 @@ pub fn encrypt(
 }
 
 pub fn decrypt(
-    encrypted_data: &[u8],
+    encrypted_str: String,
     key: &[u8],
     iv: &[u8],
     salt: &[u8],
     hmac_key: &[u8],
     hmac: &[u8],
 ) -> Result<String, SymmetricCipherError> {
+    // Challenge hmac
+    let hmac_reproduced = create_hmac(hmac_key, encrypted_str.as_bytes(), iv, salt);
+    let hmac_result = MacResult::new(&hmac_reproduced);
+    let hmac_expected = MacResult::new(hmac);
+
+    // Compare using a time-sensitive method
+    if !hmac_expected.eq(&hmac_result) {
+        // Todo: fix error
+        return Err(SymmetricCipherError::InvalidLength);
+    }
+
     // Decrypt the input using AES 256 CBC
+    let encrypted_data = base64::decode(&encrypted_str).ok().unwrap();
     let mut decryptor = cbc_decryptor(KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
     let mut final_result = Vec::<u8>::new();
-    let mut read_buffer = RefReadBuffer::new(encrypted_data);
+    let mut read_buffer = RefReadBuffer::new(encrypted_data.as_slice());
     let mut buffer = [0; 4096];
     let mut write_buffer = RefWriteBuffer::new(&mut buffer);
 
@@ -104,10 +124,10 @@ pub fn decrypt(
 
 #[test]
 fn cbc_encryption_test() {
-    let message = "Hello World!".as_bytes();
-    let key = "-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G".as_bytes();
-    let salt = "apF3M5u3dNbYt45ok92WAGjz4U7FJYDV".as_bytes();
-    let hmac_key = "_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7".as_bytes();
+    let message = b"Hello World!";
+    let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
+    let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
+    let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
 
     let encrypted = encrypt(message, key, salt, hmac_key).ok().unwrap();
     assert_eq!(encrypted.len(), 187);
@@ -115,19 +135,19 @@ fn cbc_encryption_test() {
 
 #[test]
 fn cbc_decryption_test() {
-    let encrypted = base64::decode("8OaBXdNSiwz5T6ucJ1YEvQ==").ok().unwrap();
-    let key = "-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G".as_bytes();
-    let hmac_key = "_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7".as_bytes();
-    let salt = "apF3M5u3dNbYt45ok92WAGjz4U7FJYDV".as_bytes();
-    let iv = hex::decode("05e320828ef2d1d0579ed5fb23c1b275")
+    let encrypted = "BekSVRIFrwvG9Qx5iywbWg==".to_string();
+    let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
+    let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
+    let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
+    let iv = hex::decode("f3c4bc3538d5ea1f91934cdee72a72d8")
         .ok()
         .unwrap();
-    let hmac = hex::decode("8e41ad6b51f08f66b4f1e892801584568ae1f4248241acea101d05f7fa68cf1f")
+    let hmac = hex::decode("7c8f31a3cc4a7c7f6de92da9b35ce1368657e13da535e4c0a9c038a408b86f92")
         .ok()
         .unwrap();
 
     let decrypted = decrypt(
-        encrypted.as_slice(),
+        encrypted,
         key,
         iv.as_slice(),
         salt,
