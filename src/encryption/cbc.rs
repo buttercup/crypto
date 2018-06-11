@@ -84,7 +84,7 @@ pub fn decrypt(
     salt: &[u8],
     hmac_key: &[u8],
     hmac: &[u8],
-) -> Result<String, SymmetricCipherError> {
+) -> Result<Vec<u8>, SymmetricCipherError> {
     // Challenge hmac
     let hmac_reproduced = create_hmac(hmac_key, encrypted_str.as_bytes(), iv, salt);
     let hmac_result = MacResult::new(&hmac_reproduced);
@@ -119,7 +119,7 @@ pub fn decrypt(
         }
     }
 
-    Ok(base64::encode(&final_result))
+    Ok(final_result.to_vec())
 }
 
 #[test]
@@ -155,5 +155,5 @@ fn cbc_decryption_test() {
         hmac.as_slice(),
     ).ok()
         .unwrap();
-    assert_eq!(decrypted, base64::encode("Hello World!"));
+    assert_eq!(decrypted.as_slice(), b"Hello World!");
 }
