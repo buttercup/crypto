@@ -1,10 +1,17 @@
 [package]
 name = "buttercup-crypto"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Sallar Kaboli <sallar.kaboli@gmail.com>", "Perry Mitchell <perry@perrymitchell.net>"]
 description = "Native encryption tools for Buttercup products"
 license = "MIT"
 repository = "https://github.com/buttercup/crypto"
 
 [dependencies]
-rust-crypto-wasm = "^0.3"
+rand = "0.5.1"
+base64 = "^0.5"
+hex = "^0.3"
+pbkdf2 = "0.2.0"
+sha2 = "0.7.1"
+hmac = "0.6.2"
+aes-soft = "0.1.0"
+block-modes = "0.1.0"
