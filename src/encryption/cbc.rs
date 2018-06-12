@@ -73,7 +73,7 @@ pub fn encrypt(
 }
 
 pub fn decrypt(
-    encrypted_str: String,
+    base64_data: &[u8],
     key: &[u8],
     iv: &[u8],
     salt: &[u8],
@@ -83,7 +83,7 @@ pub fn decrypt(
     // Challenge hmac
     let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
 
-    hmac.input(encrypted_str.as_bytes());
+    hmac.input(base64_data);
     hmac.input(&iv);
     hmac.input(salt);
 
@@ -91,12 +91,14 @@ pub fn decrypt(
 
     // Compare using a time-sensitive method
     if !hmac_reproduced.is_equal(hmac_expected) {
-        // Todo: fix error
         return Err(AesCbcEncryptionError::HmacVerificationFailed);
     }
 
     // Decrypt the input using AES 256 CBC
-    let mut encrypted_data = base64::decode(&encrypted_str).ok().unwrap();
+    let mut encrypted_data = match base64::decode(&base64_data) {
+        Ok(data) => data,
+        Err(_) => return Err(AesCbcEncryptionError::InvalidBase64),
+    };
     let iv_arr = GenericArray::clone_from_slice(&iv);
     let cipher = match AesCbc::new_varkey(key, &iv_arr) {
         Ok(cipher) => cipher,
@@ -122,16 +124,13 @@ fn cbc_encryption_test() {
 
 #[test]
 fn cbc_decryption_test() {
-    let encrypted = "BekSVRIFrwvG9Qx5iywbWg==".to_string();
+    let encrypted = b"BekSVRIFrwvG9Qx5iywbWg==";
     let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
     let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
     let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
-    let iv = hex::decode("f3c4bc3538d5ea1f91934cdee72a72d8")
-        .ok()
-        .unwrap();
-    let hmac = hex::decode("7c8f31a3cc4a7c7f6de92da9b35ce1368657e13da535e4c0a9c038a408b86f92")
-        .ok()
-        .unwrap();
+    let iv = hex::decode("f3c4bc3538d5ea1f91934cdee72a72d8").unwrap();
+    let hmac =
+        hex::decode("7c8f31a3cc4a7c7f6de92da9b35ce1368657e13da535e4c0a9c038a408b86f92").unwrap();
 
     let decrypted = decrypt(
         encrypted,
@@ -140,7 +139,6 @@ fn cbc_decryption_test() {
         salt,
         hmac_key,
         hmac.as_slice(),
-    ).ok()
-        .unwrap();
+    ).unwrap_or(Vec::new());
     assert_eq!(decrypted.as_slice(), b"Hello World!");
 }
