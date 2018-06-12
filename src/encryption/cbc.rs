@@ -3,7 +3,6 @@ use aes_soft::Aes256;
 use base64;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeIv, Cbc};
-use crypto::symmetriccipher::SymmetricCipherError;
 use hex;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
@@ -11,7 +10,14 @@ use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 type AesCbc = Cbc<Aes256, Pkcs7>;
+
 pub const AES256_BLOCK_LEN: usize = 16;
+
+pub enum AesCbcEncryptionError {
+    HmacVerificationFailed,
+    InvalidEncryptionKeyOrIv,
+    InvalidBase64,
+}
 
 fn glued_result(string_list: Vec<String>) -> String {
     string_list.join("$")
@@ -28,7 +34,7 @@ pub fn encrypt(
     key: &[u8],
     salt: &[u8],
     hmac_key: &[u8],
-) -> Result<String, SymmetricCipherError> {
+) -> Result<String, AesCbcEncryptionError> {
     // Encrypt the input using AES 256 CBC
     let iv = generate_iv();
     let iv_arr = GenericArray::clone_from_slice(&iv);
@@ -37,7 +43,10 @@ pub fn encrypt(
     let msg_len = data_buffer.len();
     data_buffer.extend_from_slice(&[0u8; AES256_BLOCK_LEN]);
 
-    let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
+    let cipher = match AesCbc::new_varkey(key, &iv_arr) {
+        Ok(cipher) => cipher,
+        Err(_) => return Err(AesCbcEncryptionError::InvalidEncryptionKeyOrIv),
+    };
     let final_result = cipher
         .encrypt_pad(&mut data_buffer, msg_len)
         .expect("Trying to encrypt the content.");
@@ -70,7 +79,7 @@ pub fn decrypt(
     salt: &[u8],
     hmac_key: &[u8],
     hmac_expected: &[u8],
-) -> Result<Vec<u8>, SymmetricCipherError> {
+) -> Result<Vec<u8>, AesCbcEncryptionError> {
     // Challenge hmac
     let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
 
@@ -83,13 +92,16 @@ pub fn decrypt(
     // Compare using a time-sensitive method
     if !hmac_reproduced.is_equal(hmac_expected) {
         // Todo: fix error
-        return Err(SymmetricCipherError::InvalidLength);
+        return Err(AesCbcEncryptionError::HmacVerificationFailed);
     }
 
     // Decrypt the input using AES 256 CBC
     let mut encrypted_data = base64::decode(&encrypted_str).ok().unwrap();
     let iv_arr = GenericArray::clone_from_slice(&iv);
-    let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
+    let cipher = match AesCbc::new_varkey(key, &iv_arr) {
+        Ok(cipher) => cipher,
+        Err(_) => return Err(AesCbcEncryptionError::InvalidEncryptionKeyOrIv),
+    };
     let final_result = cipher
         .decrypt_pad(&mut encrypted_data)
         .expect("Trying to decrypt the content.");
