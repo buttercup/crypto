@@ -3,7 +3,6 @@ use aes_soft::Aes256;
 use base64;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeIv, Cbc};
-use hex;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
@@ -12,15 +11,12 @@ type HmacSha256 = Hmac<Sha256>;
 type AesCbc = Cbc<Aes256, Pkcs7>;
 
 pub const AES256_BLOCK_LEN: usize = 16;
+pub type EncryptionResult = (String, Vec<u8>, Vec<u8>, Vec<u8>);
 
 pub enum AesCbcEncryptionError {
     HmacVerificationFailed,
     InvalidEncryptionKeyOrIv,
     InvalidBase64,
-}
-
-fn glued_result(string_list: Vec<String>) -> String {
-    string_list.join("$")
 }
 
 fn generate_iv() -> [u8; 16] {
@@ -29,12 +25,13 @@ fn generate_iv() -> [u8; 16] {
     iv
 }
 
+/// Encrypt text using AES-CBC
 pub fn encrypt(
     data: &[u8],
     key: &[u8],
     salt: &[u8],
     hmac_key: &[u8],
-) -> Result<String, AesCbcEncryptionError> {
+) -> Result<EncryptionResult, AesCbcEncryptionError> {
     // Encrypt the input using AES 256 CBC
     let iv = generate_iv();
     let iv_arr = GenericArray::clone_from_slice(&iv);
@@ -62,16 +59,15 @@ pub fn encrypt(
     let hmac_result = hmac.result();
     let hmac_code = hmac_result.code();
 
-    // Glue together the result
-    // The encrypted content is Base64 everything else is Hex
-    Ok(glued_result(vec![
+    return Ok((
         base64_result,
-        hex::encode(hmac_code),
-        hex::encode(&iv),
-        hex::encode(salt),
-    ]))
+        hmac_code.to_vec(),
+        iv.to_vec(),
+        salt.to_vec(),
+    ));
 }
 
+/// Decrypt text using AES-CBC
 pub fn decrypt(
     base64_data: &[u8],
     key: &[u8],
@@ -118,12 +114,17 @@ fn cbc_encryption_test() {
     let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
     let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
 
-    let encrypted = encrypt(message, key, salt, hmac_key).ok().unwrap();
-    assert_eq!(encrypted.len(), 187);
+    let (encrypted, hmac_code, iv, new_salt) = encrypt(message, key, salt, hmac_key).ok().unwrap();
+    assert_eq!(encrypted.len(), 24);
+    assert_eq!(hmac_code.len(), 32);
+    assert_eq!(iv.len(), 16);
+    assert_eq!(new_salt.as_slice(), salt);
 }
 
 #[test]
 fn cbc_decryption_test() {
+    use hex;
+
     let encrypted = b"BekSVRIFrwvG9Qx5iywbWg==";
     let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
     let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
