@@ -12,7 +12,6 @@ type AesCbc = Cbc<Aes256, Pkcs7>;
 
 pub const AES256_BLOCK_LEN: usize = 16;
 pub type EncryptionResult = (String, Vec<u8>, Vec<u8>, Vec<u8>);
-
 pub enum AesCbcEncryptionError {
     HmacVerificationFailed,
     InvalidEncryptionKeyOrIv,
@@ -32,7 +31,6 @@ pub fn encrypt(
     salt: &[u8],
     hmac_key: &[u8],
 ) -> Result<EncryptionResult, AesCbcEncryptionError> {
-    // Encrypt the input using AES 256 CBC
     let iv = generate_iv();
     let iv_arr = GenericArray::clone_from_slice(&iv);
 
@@ -76,7 +74,7 @@ pub fn decrypt(
     hmac_key: &[u8],
     hmac_expected: &[u8],
 ) -> Result<Vec<u8>, AesCbcEncryptionError> {
-    // Challenge hmac
+    // Recreate the Hmac
     let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
 
     hmac.input(base64_data);
@@ -85,12 +83,12 @@ pub fn decrypt(
 
     let hmac_reproduced = hmac.result();
 
-    // Compare using a time-sensitive method
+    // Compare using a time-consistent method
     if !hmac_reproduced.is_equal(hmac_expected) {
         return Err(AesCbcEncryptionError::HmacVerificationFailed);
     }
 
-    // Decrypt the input using AES 256 CBC
+    // Decrypt the input data
     let mut encrypted_data = match base64::decode(&base64_data) {
         Ok(data) => data,
         Err(_) => return Err(AesCbcEncryptionError::InvalidBase64),
