@@ -11,7 +11,7 @@ use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 type AesCbc = Cbc<Aes256, Pkcs7>;
-pub const SHA256_BLOCK_LEN: usize = 16;
+pub const AES256_BLOCK_LEN: usize = 16;
 
 fn glued_result(string_list: Vec<String>) -> String {
     string_list.join("$")
@@ -35,14 +35,16 @@ pub fn encrypt(
 
     let mut data_buffer = data.to_vec();
     let msg_len = data_buffer.len();
-    data_buffer.extend([0u8; SHA256_BLOCK_LEN].iter());
+    data_buffer.extend_from_slice(&[0u8; AES256_BLOCK_LEN]);
 
     let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
-    let final_result = cipher.encrypt_pad(&mut data_buffer, msg_len).unwrap();
+    let final_result = cipher
+        .encrypt_pad(&mut data_buffer, msg_len)
+        .expect("Trying to encrypt the content.");
 
     // Create an HMAC using SHA256
     let base64_result = base64::encode(&final_result);
-    let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC Key is required.");
+    let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
 
     hmac.input(base64_result.as_bytes());
     hmac.input(&iv);
@@ -70,7 +72,7 @@ pub fn decrypt(
     hmac_expected: &[u8],
 ) -> Result<Vec<u8>, SymmetricCipherError> {
     // Challenge hmac
-    let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC Key is required.");
+    let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
 
     hmac.input(encrypted_str.as_bytes());
     hmac.input(&iv);
@@ -88,7 +90,9 @@ pub fn decrypt(
     let mut encrypted_data = base64::decode(&encrypted_str).ok().unwrap();
     let iv_arr = GenericArray::clone_from_slice(&iv);
     let cipher = AesCbc::new_varkey(key, &iv_arr).unwrap();
-    let final_result = cipher.decrypt_pad(&mut encrypted_data).unwrap();
+    let final_result = cipher
+        .decrypt_pad(&mut encrypted_data)
+        .expect("Trying to decrypt the content.");
 
     Ok(final_result.to_vec())
 }
