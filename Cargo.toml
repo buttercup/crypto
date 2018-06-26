@@ -1,6 +1,6 @@
 [package]
 name = "buttercup-crypto"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Sallar Kaboli <sallar.kaboli@gmail.com>", "Perry Mitchell <perry@perrymitchell.net>"]
 description = "Native encryption tools for Buttercup products"
 license = "MIT"
