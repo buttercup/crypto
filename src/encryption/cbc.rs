@@ -3,6 +3,7 @@ use aes_soft::Aes256;
 use base64;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeIv, Cbc};
+use hex;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
@@ -49,10 +50,8 @@ pub fn encrypt(
     // Create an HMAC using SHA256
     let base64_result = base64::encode(&final_result);
     let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
-
-    hmac.input(base64_result.as_bytes());
-    hmac.input(&iv);
-    hmac.input(salt);
+    let hmac_target_bytes = [base64_result.as_bytes(), hex::encode(&iv).as_bytes(), salt].concat();
+    hmac.input(hmac_target_bytes.as_slice());
 
     let hmac_result = hmac.result();
     let hmac_code = hmac_result.code();
@@ -76,10 +75,8 @@ pub fn decrypt(
 ) -> Result<Vec<u8>, AesCbcEncryptionError> {
     // Recreate the Hmac
     let mut hmac = HmacSha256::new_varkey(hmac_key).expect("HMAC can take key of any size.");
-
-    hmac.input(base64_data);
-    hmac.input(&iv);
-    hmac.input(salt);
+    let hmac_target_bytes = [base64_data, hex::encode(iv).as_bytes(), salt].concat();
+    hmac.input(hmac_target_bytes.as_slice());
 
     let hmac_reproduced = hmac.result();
 
@@ -121,15 +118,13 @@ fn cbc_encryption_test() {
 
 #[test]
 fn cbc_decryption_test() {
-    use hex;
-
-    let encrypted = b"BekSVRIFrwvG9Qx5iywbWg==";
+    let encrypted = b"4D6BXHMq6aQiQthhEB9QBw==";
     let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
     let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
     let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
-    let iv = hex::decode("f3c4bc3538d5ea1f91934cdee72a72d8").unwrap();
+    let iv = hex::decode("3bc47de901332753e03ed175e31e5874").unwrap();
     let hmac =
-        hex::decode("7c8f31a3cc4a7c7f6de92da9b35ce1368657e13da535e4c0a9c038a408b86f92").unwrap();
+        hex::decode("df7e704bb3905258b54f36b562aa123a508e68b45a67a4413da24d837acd51d9").unwrap();
 
     let decrypted = decrypt(
         encrypted,
