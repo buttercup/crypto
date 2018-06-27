@@ -5,7 +5,7 @@ use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeIv, Cbc};
 use hex;
 use hmac::{Hmac, Mac};
-use rand::{thread_rng, Rng};
+use random::generate_iv;
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -17,12 +17,6 @@ pub enum AesCbcEncryptionError {
     HmacVerificationFailed,
     InvalidEncryptionKeyOrIv,
     InvalidBase64,
-}
-
-fn generate_iv() -> [u8; 16] {
-    let mut iv: [u8; 16] = [0; 16];
-    thread_rng().fill(&mut iv[..]);
-    iv
 }
 
 /// Encrypt text using AES-CBC

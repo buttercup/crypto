@@ -9,3 +9,4 @@ extern crate sha2;
 
 pub mod derivation;
 pub mod encryption;
+pub mod random;
