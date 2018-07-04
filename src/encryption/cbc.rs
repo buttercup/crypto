@@ -5,7 +5,6 @@ use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeIv, Cbc};
 use hex;
 use hmac::{Hmac, Mac};
-use random::generate_iv;
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -24,9 +23,9 @@ pub fn encrypt(
     data: &[u8],
     key: &[u8],
     salt: &[u8],
+    iv: &[u8],
     hmac_key: &[u8],
 ) -> Result<EncryptionResult, AesCbcEncryptionError> {
-    let iv = generate_iv();
     let iv_arr = GenericArray::clone_from_slice(&iv);
 
     let mut data_buffer = data.to_vec();
@@ -84,7 +83,7 @@ pub fn decrypt(
         Ok(data) => data,
         Err(_) => return Err(AesCbcEncryptionError::InvalidBase64),
     };
-    let iv_arr = GenericArray::clone_from_slice(&iv);
+    let iv_arr = GenericArray::clone_from_slice(iv);
     let cipher = match AesCbc::new_varkey(key, &iv_arr) {
         Ok(cipher) => cipher,
         Err(_) => return Err(AesCbcEncryptionError::InvalidEncryptionKeyOrIv),
@@ -98,12 +97,17 @@ pub fn decrypt(
 
 #[test]
 fn cbc_encryption_test() {
+    use random::generate_iv;
+
     let message = b"Hello World!";
     let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
     let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
     let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
+    let iv_generated = generate_iv();
 
-    let (encrypted, hmac_code, iv, new_salt) = encrypt(message, key, salt, hmac_key).ok().unwrap();
+    let (encrypted, hmac_code, iv, new_salt) = encrypt(message, key, salt, &iv_generated, hmac_key)
+        .ok()
+        .unwrap();
     assert_eq!(encrypted.len(), 24);
     assert_eq!(hmac_code.len(), 32);
     assert_eq!(iv.len(), 16);

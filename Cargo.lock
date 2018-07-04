@@ -59,7 +59,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "buttercup-crypto"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "aes-soft 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
