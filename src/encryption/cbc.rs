@@ -97,13 +97,13 @@ pub fn decrypt(
 
 #[test]
 fn cbc_encryption_test() {
-    use random::generate_iv;
+    use random::generate_bytes;
 
     let message = b"Hello World!";
     let key = b"-3MWk7o_RLT32ZF30rIhHUQqh_gB8V4G";
     let salt = b"apF3M5u3dNbYt45ok92WAGjz4U7FJYDV";
     let hmac_key = b"_GV08*=cb1#y3aA;8Xw#bYhV-nfe#$x7";
-    let iv_generated = generate_iv();
+    let iv_generated = generate_bytes(16);
 
     let (encrypted, hmac_code, iv, new_salt) = encrypt(message, key, salt, &iv_generated, hmac_key)
         .ok()

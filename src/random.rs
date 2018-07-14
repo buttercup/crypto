@@ -1,10 +1,11 @@
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 
-pub fn generate_iv() -> [u8; 16] {
-    let mut iv: [u8; 16] = [0; 16];
-    thread_rng().fill(&mut iv[..]);
-    iv
+pub fn generate_bytes(length: usize) -> Vec<u8> {
+    let mut dest = Vec::new();
+    dest.resize(length, 0);
+    thread_rng().fill(dest.as_mut_slice());
+    dest
 }
 
 pub fn generate_string(length: usize) -> String {
@@ -17,8 +18,11 @@ pub fn generate_string(length: usize) -> String {
 
 #[test]
 fn random_iv_test() {
-    let iv = generate_iv();
-    assert_eq!(iv.len(), 16);
+    let iv16 = generate_bytes(16);
+    let iv32 = generate_bytes(32);
+
+    assert_eq!(iv16.len(), 16);
+    assert_eq!(iv32.len(), 32);
 }
 
 #[test]
